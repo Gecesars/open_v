@@ -81,6 +81,20 @@ Modo interativo (escolha de modelo e fonte):
 python app.py
 ```
 
+## Interface grafica (GUI)
+
+Instalar dependencias da GUI:
+
+```bash
+pip install -r requirements-gui.txt
+```
+
+Executar:
+
+```bash
+python gui.py
+```
+
 Webcam:
 
 ```bash
