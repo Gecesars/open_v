@@ -28,6 +28,12 @@ Baixar um modelo:
 python download_models.py --model yolov3
 ```
 
+Modelos adicionais (mais precisos, mais pesados):
+
+```bash
+python download_models.py --model yolov5m-onnx --model yolov5l-onnx --model yolov5x-onnx
+```
+
 Baixar tudo:
 
 ```bash

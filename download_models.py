@@ -19,6 +19,18 @@ MODEL_SOURCES = {
         "yolov5s.onnx": "https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5s.onnx",
         "coco.names": "https://raw.githubusercontent.com/ultralytics/yolov5/master/data/coco.names",
     },
+    "yolov5m-onnx": {
+        "yolov5m.onnx": "https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5m.onnx",
+        "coco.names": "https://raw.githubusercontent.com/ultralytics/yolov5/master/data/coco.names",
+    },
+    "yolov5l-onnx": {
+        "yolov5l.onnx": "https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5l.onnx",
+        "coco.names": "https://raw.githubusercontent.com/ultralytics/yolov5/master/data/coco.names",
+    },
+    "yolov5x-onnx": {
+        "yolov5x.onnx": "https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5x.onnx",
+        "coco.names": "https://raw.githubusercontent.com/ultralytics/yolov5/master/data/coco.names",
+    },
 }
 
 

@@ -22,5 +22,29 @@
     "weights": "yolov5s.onnx",
     "names": "coco.names",
     "input_size": [640, 640]
+  },
+  "yolov5m-onnx": {
+    "name": "YOLOv5m (ONNX)",
+    "type": "onnx-yolo",
+    "config": null,
+    "weights": "yolov5m.onnx",
+    "names": "coco.names",
+    "input_size": [640, 640]
+  },
+  "yolov5l-onnx": {
+    "name": "YOLOv5l (ONNX)",
+    "type": "onnx-yolo",
+    "config": null,
+    "weights": "yolov5l.onnx",
+    "names": "coco.names",
+    "input_size": [640, 640]
+  },
+  "yolov5x-onnx": {
+    "name": "YOLOv5x (ONNX)",
+    "type": "onnx-yolo",
+    "config": null,
+    "weights": "yolov5x.onnx",
+    "names": "coco.names",
+    "input_size": [640, 640]
   }
 }
