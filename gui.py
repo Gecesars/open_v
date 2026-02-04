@@ -84,6 +84,49 @@ class ImageComparator:
         return cv2.resize(gray, (width, new_h), interpolation=cv2.INTER_AREA)
 
 
+def open_camera(index: int) -> Optional[cv2.VideoCapture]:
+    backends = [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY]
+    for backend in backends:
+        cap = cv2.VideoCapture(index, backend)
+        if cap.isOpened():
+            return cap
+        cap.release()
+    return None
+
+
+class CameraTestWorker(QtCore.QThread):
+    frame_ready = QtCore.Signal(QtGui.QImage)
+    status = QtCore.Signal(str)
+    error = QtCore.Signal(str)
+    finished = QtCore.Signal()
+
+    def __init__(self, camera_index: int):
+        super().__init__()
+        self.camera_index = camera_index
+
+    def run(self) -> None:
+        cap = None
+        try:
+            self.status.emit("Abrindo camera...")
+            cap = open_camera(self.camera_index)
+            if cap is None:
+                self.error.emit("Nao foi possivel abrir a camera.")
+                return
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                self.error.emit("Camera aberta, mas sem frame.")
+                return
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w = rgb.shape[:2]
+            qimg = QtGui.QImage(rgb.data, w, h, 3 * w, QtGui.QImage.Format_RGB888).copy()
+            self.frame_ready.emit(qimg)
+            self.status.emit("Camera OK.")
+        finally:
+            if cap is not None:
+                cap.release()
+            self.finished.emit()
+
+
 class DetectionWorker(QtCore.QThread):
     frame_ready = QtCore.Signal(QtGui.QImage, float, float, bool)
     status = QtCore.Signal(str)
@@ -127,8 +170,8 @@ class DetectionWorker(QtCore.QThread):
         try:
             if self.config.source == "webcam":
                 self.status.emit("Abrindo camera...")
-                cap = cv2.VideoCapture(self.config.camera_index)
-                if not cap.isOpened():
+                cap = open_camera(self.config.camera_index)
+                if cap is None:
                     raise RuntimeError("Nao foi possivel abrir a camera.")
                 if self.config.width:
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)
@@ -172,6 +215,8 @@ class DetectionWorker(QtCore.QThread):
             last_time = time.time()
             fps = 0.0
             frame_count = 0
+            last_emit = 0.0
+            ui_interval = 1.0 / 30.0
 
             while self._running:
                 if self.config.source == "screen":
@@ -210,7 +255,10 @@ class DetectionWorker(QtCore.QThread):
                     compare_score = self.comparator.score(frame)
                     compare_ok = compare_score >= self.compare_threshold
 
-                self._emit_frame(frame, fps, compare_score, compare_ok)
+                now = time.time()
+                if now - last_emit >= ui_interval:
+                    self._emit_frame(frame, fps, compare_score, compare_ok)
+                    last_emit = now
 
                 if self.config.save_path:
                     self._write_frame(frame)
@@ -268,6 +316,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1200, 720)
 
         self.worker: Optional[DetectionWorker] = None
+        self.test_worker: Optional[CameraTestWorker] = None
         self.ref_image: Optional[np.ndarray] = None
         self.compare_threshold = 0.3
 
@@ -566,28 +615,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.status_label.setText(message)
 
     def _test_camera(self):
-        if self.worker is not None:
+        if self.worker is not None or self.test_worker is not None:
             return
         self.status_label.setText("Testando camera...")
-        cap = cv2.VideoCapture(self.camera_index.value())
-        try:
-            if not cap.isOpened():
-                self.status_label.setText("Erro: camera nao abriu.")
-                return
-            ret, frame = cap.read()
-            if not ret or frame is None:
-                self.status_label.setText("Erro: sem frame da camera.")
-                return
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            h, w = rgb.shape[:2]
-            qimg = QtGui.QImage(rgb.data, w, h, 3 * w, QtGui.QImage.Format_RGB888).copy()
-            pix = QtGui.QPixmap.fromImage(qimg)
-            self.viewer.setPixmap(
-                pix.scaled(self.viewer.size(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-            )
-            self.status_label.setText("Camera OK.")
-        finally:
-            cap.release()
+        self.test_worker = CameraTestWorker(self.camera_index.value())
+        self.test_worker.status.connect(self._on_status)
+        self.test_worker.error.connect(self._on_error)
+        self.test_worker.frame_ready.connect(self._on_test_frame)
+        self.test_worker.finished.connect(self._on_test_finished)
+        self._set_testing(True)
+        self.test_worker.start()
 
     def _update_frame(self, qimg: QtGui.QImage, fps: float, score: float, ok: bool):
         pix = QtGui.QPixmap.fromImage(qimg)
@@ -618,10 +655,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.threshold_slider.setEnabled(not running)
         self.ref_button.setEnabled(not running)
 
+    def _set_testing(self, testing: bool):
+        self.start_button.setEnabled(not testing)
+        self.stop_button.setEnabled(False)
+        self.test_button.setEnabled(not testing)
+
+    def _on_test_frame(self, qimg: QtGui.QImage):
+        pix = QtGui.QPixmap.fromImage(qimg)
+        self.viewer.setPixmap(
+            pix.scaled(self.viewer.size(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+        )
+
+    def _on_test_finished(self):
+        self._set_testing(False)
+        self.test_worker = None
+
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         if self.worker:
             self.worker.stop()
             self.worker.wait(1000)
+        if self.test_worker:
+            self.test_worker.wait(1000)
         event.accept()
 
 
