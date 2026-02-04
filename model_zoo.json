@@ -1,0 +1,26 @@
+{
+  "yolov3": {
+    "name": "YOLOv3 (Darknet)",
+    "type": "darknet",
+    "config": "yolov3.cfg",
+    "weights": "yolov3.weights",
+    "names": "coco.names",
+    "input_size": [416, 416]
+  },
+  "yolov4-tiny": {
+    "name": "YOLOv4-tiny (Darknet)",
+    "type": "darknet",
+    "config": "yolov4-tiny.cfg",
+    "weights": "yolov4-tiny.weights",
+    "names": "coco.names",
+    "input_size": [416, 416]
+  },
+  "yolov5s-onnx": {
+    "name": "YOLOv5s (ONNX)",
+    "type": "onnx-yolo",
+    "config": null,
+    "weights": "yolov5s.onnx",
+    "names": "coco.names",
+    "input_size": [640, 640]
+  }
+}
