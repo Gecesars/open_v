@@ -80,6 +80,7 @@ class ImageComparator:
 
 class DetectionWorker(QtCore.QThread):
     frame_ready = QtCore.Signal(QtGui.QImage, float, float, bool)
+    status = QtCore.Signal(str)
     error = QtCore.Signal(str)
     stopped = QtCore.Signal()
 
@@ -99,12 +100,14 @@ class DetectionWorker(QtCore.QThread):
 
     def run(self) -> None:
         try:
+            self.status.emit("Carregando modelo...")
             zoo = core.load_model_zoo(core.MODEL_ZOO_PATH)
             spec = core.build_model_spec(zoo, self.config.model)
             class_names = core.load_class_names(spec.names)
             class_filter = core.parse_class_filter(class_names, self.config.classes)
             detector = core.Detector(spec, self.config.conf, self.config.nms, self.config.device, class_filter)
             colors = core.create_colors(max(1, len(detector.class_names)))
+            self.status.emit("Modelo carregado.")
         except Exception as exc:
             self.error.emit(f"Model init failed: {exc}")
             self.stopped.emit()
@@ -117,7 +120,10 @@ class DetectionWorker(QtCore.QThread):
 
         try:
             if self.config.source == "webcam":
+                self.status.emit("Abrindo camera...")
                 cap = cv2.VideoCapture(self.config.camera_index)
+                if not cap.isOpened():
+                    raise RuntimeError("Nao foi possivel abrir a camera.")
                 if self.config.width:
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)
                 if self.config.height:
@@ -125,10 +131,17 @@ class DetectionWorker(QtCore.QThread):
             elif self.config.source == "video":
                 if not self.config.input_path:
                     raise RuntimeError("Input path required for video source.")
+                if not self.config.input_path.exists():
+                    raise RuntimeError("Arquivo de video nao encontrado.")
+                self.status.emit("Abrindo video...")
                 cap = cv2.VideoCapture(str(self.config.input_path))
+                if not cap.isOpened():
+                    raise RuntimeError("Nao foi possivel abrir o video.")
             elif self.config.source == "image":
                 if not self.config.input_path:
                     raise RuntimeError("Input path required for image source.")
+                if not self.config.input_path.exists():
+                    raise RuntimeError("Arquivo de imagem nao encontrado.")
                 frame = cv2.imread(str(self.config.input_path))
                 if frame is None:
                     raise RuntimeError("Could not read image.")
@@ -148,6 +161,7 @@ class DetectionWorker(QtCore.QThread):
                     monitor = {"left": x, "top": y, "width": w, "height": h}
                 if self.config.screen_fps > 0:
                     delay = 1.0 / self.config.screen_fps
+                self.status.emit("Capturando tela...")
 
             last_time = time.time()
             fps = 0.0
@@ -517,12 +531,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.worker = DetectionWorker(config, self.ref_image, self.compare_threshold)
         self.worker.frame_ready.connect(self._update_frame)
+        self.worker.status.connect(self._on_status)
         self.worker.error.connect(self._on_error)
         self.worker.stopped.connect(self._on_stopped)
         self.worker.start()
 
         self._set_running(True)
-        self.status_label.setText("Running")
+        self.status_label.setText("Iniciando...")
 
     def _stop(self):
         if self.worker:
@@ -536,6 +551,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_error(self, message: str):
         self.status_label.setText(f"Error: {message}")
+
+    def _on_status(self, message: str):
+        self.status_label.setText(message)
 
     def _update_frame(self, qimg: QtGui.QImage, fps: float, score: float, ok: bool):
         pix = QtGui.QPixmap.fromImage(qimg)
