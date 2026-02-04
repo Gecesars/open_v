@@ -8,7 +8,13 @@ from typing import Optional, Tuple
 
 import cv2
 import numpy as np
-from PySide6 import QtCore, QtGui, QtWidgets
+try:
+    from PySide6 import QtCore, QtGui, QtWidgets
+except Exception as exc:  # noqa: BLE001 - show a friendly message for GUI users
+    print("Erro ao importar PySide6. Instale com: pip install -r requirements-gui.txt")
+    print(f"Detalhes: {exc}")
+    input("Pressione Enter para sair...")
+    raise SystemExit(1)
 
 import app as core
 

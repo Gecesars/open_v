@@ -95,6 +95,12 @@ Executar:
 python gui.py
 ```
 
+Atalho (Windows):
+
+```bash
+run_gui.bat
+```
+
 Webcam:
 
 ```bash
