@@ -406,12 +406,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # Buttons
         self.start_button = QtWidgets.QPushButton("Start")
         self.stop_button = QtWidgets.QPushButton("Stop")
+        self.test_button = QtWidgets.QPushButton("Test Camera")
         self.stop_button.setEnabled(False)
         self.start_button.clicked.connect(self._start)
         self.stop_button.clicked.connect(self._stop)
+        self.test_button.clicked.connect(self._test_camera)
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.addWidget(self.start_button)
         btn_row.addWidget(self.stop_button)
+        btn_row.addWidget(self.test_button)
 
         left_layout.addWidget(self.status_label)
         left_layout.addWidget(source_box)
@@ -464,6 +467,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.monitor_index.setEnabled(value == "screen")
         self.region_edit.setEnabled(value == "screen")
         self.screen_fps.setEnabled(value == "screen")
+        self.test_button.setEnabled(value == "webcam" and self.worker is None)
 
     def _browse_input(self):
         source = self.source_combo.currentText()
@@ -555,6 +559,30 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_status(self, message: str):
         self.status_label.setText(message)
 
+    def _test_camera(self):
+        if self.worker is not None:
+            return
+        self.status_label.setText("Testando camera...")
+        cap = cv2.VideoCapture(self.camera_index.value())
+        try:
+            if not cap.isOpened():
+                self.status_label.setText("Erro: camera nao abriu.")
+                return
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                self.status_label.setText("Erro: sem frame da camera.")
+                return
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w = rgb.shape[:2]
+            qimg = QtGui.QImage(rgb.data, w, h, 3 * w, QtGui.QImage.Format_RGB888).copy()
+            pix = QtGui.QPixmap.fromImage(qimg)
+            self.viewer.setPixmap(
+                pix.scaled(self.viewer.size(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            )
+            self.status_label.setText("Camera OK.")
+        finally:
+            cap.release()
+
     def _update_frame(self, qimg: QtGui.QImage, fps: float, score: float, ok: bool):
         pix = QtGui.QPixmap.fromImage(qimg)
         self.viewer.setPixmap(pix.scaled(self.viewer.size(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
@@ -565,6 +593,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _set_running(self, running: bool):
         self.start_button.setEnabled(not running)
         self.stop_button.setEnabled(running)
+        self.test_button.setEnabled(not running and self.source_combo.currentText() == "webcam")
         self.source_combo.setEnabled(not running)
         self.model_combo.setEnabled(not running)
         self.device_combo.setEnabled(not running)
