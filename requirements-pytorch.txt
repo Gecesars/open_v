@@ -1,0 +1,5 @@
+ultralytics>=8.4
+pandas>=2.1
+tqdm>=4.66
+seaborn>=0.13
+gitpython>=3.1

@@ -15,6 +15,10 @@ try:
     import mss
 except Exception:  # noqa: BLE001 - keep optional dependency simple
     mss = None
+try:
+    import torch
+except Exception:  # noqa: BLE001 - keep optional dependency simple
+    torch = None
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -25,7 +29,7 @@ MODEL_ZOO_PATH = APP_DIR / "model_zoo.json"
 class ModelSpec:
     key: str
     name: str
-    model_type: str  # "darknet" or "onnx-yolo"
+    model_type: str  # "darknet", "onnx-yolo", "torch-yolov5"
     weights: Path
     config: Optional[Path]
     names: Path
@@ -152,15 +156,44 @@ class Detector:
                 raise FileNotFoundError(f"ONNX nao encontrado: {spec.weights}")
             self.net = cv2.dnn.readNetFromONNX(str(spec.weights))
             self.output_layers = []
+        elif spec.model_type == "torch-yolov5":
+            if torch is None:
+                raise RuntimeError("PyTorch nao esta instalado.")
+            if not spec.weights.exists():
+                raise FileNotFoundError(f"Pesos .pt nao encontrado: {spec.weights}")
+            use_cuda = device in ("cuda", "cuda_fp16") and torch.cuda.is_available()
+            self.torch_device = "cuda" if use_cuda else "cpu"
+            try:
+                self.model = torch.hub.load(
+                    "ultralytics/yolov5",
+                    "custom",
+                    path=str(spec.weights),
+                    trust_repo=True,
+                )
+            except Exception as exc:  # noqa: BLE001 - surface a friendly hint
+                raise RuntimeError(
+                    "Falha ao carregar YOLOv5 via torch.hub. "
+                    "Instale: ultralytics, pandas, tqdm, seaborn, gitpython."
+                ) from exc
+            self.model.to(self.torch_device)
+            if device == "cuda_fp16" and use_cuda:
+                self.model.half()
+            self.model.conf = conf
+            self.model.iou = nms
+            if class_filter:
+                self.model.classes = list(class_filter)
         else:
             raise ValueError(f"Tipo de modelo desconhecido: {spec.model_type}")
 
-        set_device(self.net, device)
+        if spec.model_type in ("darknet", "onnx-yolo"):
+            set_device(self.net, device)
 
     def detect(self, frame: np.ndarray) -> List[dict]:
         if self.spec.model_type == "darknet":
             return self._detect_darknet(frame)
-        return self._detect_onnx_yolo(frame)
+        if self.spec.model_type == "onnx-yolo":
+            return self._detect_onnx_yolo(frame)
+        return self._detect_torch_yolov5(frame)
 
     def _detect_darknet(self, frame: np.ndarray) -> List[dict]:
         h, w = frame.shape[:2]
@@ -270,6 +303,22 @@ class Detector:
                 }
             )
         return results
+
+    def _detect_torch_yolov5(self, frame: np.ndarray) -> List[dict]:
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        size = max(self.spec.input_size)
+        results = self.model(rgb, size=size)
+        preds = results.xyxy[0].detach().cpu().numpy()
+        detections: List[dict] = []
+        for x1, y1, x2, y2, conf, cls in preds:
+            detections.append(
+                {
+                    "box": [int(x1), int(y1), int(x2 - x1), int(y2 - y1)],
+                    "confidence": float(conf),
+                    "class_id": int(cls),
+                }
+            )
+        return detections
 
 
 def create_colors(num: int) -> np.ndarray:

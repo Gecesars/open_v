@@ -46,5 +46,21 @@
     "weights": "yolov5x.onnx",
     "names": "coco.names",
     "input_size": [640, 640]
+  },
+  "yolov5l-pt": {
+    "name": "YOLOv5l (PyTorch)",
+    "type": "torch-yolov5",
+    "config": null,
+    "weights": "yolov5l.pt",
+    "names": "coco.names",
+    "input_size": [640, 640]
+  },
+  "yolov5x-pt": {
+    "name": "YOLOv5x (PyTorch)",
+    "type": "torch-yolov5",
+    "config": null,
+    "weights": "yolov5x.pt",
+    "names": "coco.names",
+    "input_size": [640, 640]
   }
 }

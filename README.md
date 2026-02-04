@@ -34,6 +34,39 @@ Modelos adicionais (mais precisos, mais pesados):
 python download_models.py --model yolov5m-onnx --model yolov5l-onnx --model yolov5x-onnx
 ```
 
+## PyTorch CUDA (melhor desempenho)
+
+Instalar PyTorch com CUDA:
+
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
+
+Instalar dependencias extras do backend PyTorch:
+
+```bash
+pip install -r requirements-pytorch.txt
+```
+
+Baixar pesos PyTorch:
+
+```bash
+python download_models.py --model yolov5l-pt
+```
+
+Executar com GPU:
+
+```bash
+python app.py --source webcam --model yolov5l-pt --device cuda --show-fps
+```
+
+Se quiser mais precisao (pode ser mais pesado na VRAM):
+
+```bash
+python download_models.py --model yolov5x-pt
+python app.py --source webcam --model yolov5x-pt --device cuda --show-fps
+```
+
 Baixar tudo:
 
 ```bash

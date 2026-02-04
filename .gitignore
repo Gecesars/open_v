@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 *.weights
 *.onnx
+*.pt
 *.mp4
 *.avi
 *.mov
